@@ -11,15 +11,13 @@ room_size = (8, 8)
 num_tags = 10
 refresh_interval = 1000  # ms
 
-# Initialize readers and tags
+# Initialize simulation state
 if "readers" not in st.session_state:
     st.session_state.readers = [
-        {"id": "RDR-001", "pos": (2, 2), "gain": 1.0},
-        {"id": "RDR-002", "pos": (6, 2), "gain": 0.9},
-        {"id": "RDR-003", "pos": (4, 6), "gain": 1.1},
-        {"id": "RDR-004", "pos": (1, 5), "gain": 0.85},
+        {"id": "RDR-001", "pos": (1, 1), "gain": 1.0},
+        {"id": "RDR-002", "pos": (1, 7), "gain": 0.9},
+        {"id": "RDR-003", "pos": (4,7 ), "gain": 1.1}
     ]
-
 if "tags" not in st.session_state:
     st.session_state.tags = [
         {
@@ -29,8 +27,10 @@ if "tags" not in st.session_state:
         }
         for i in range(num_tags)
     ]
+if "running" not in st.session_state:
+    st.session_state.running = True
 
-# ------------------ FUNCTIONS ------------------
+# ------------------ TDOA SIMULATION ------------------
 def simulate_tdoa(tag_pos):
     c = 3e8
     readers = st.session_state.readers
@@ -49,17 +49,20 @@ def simulate_tdoa(tag_pos):
     result = least_squares(residuals, x0=[4, 4])
     return tuple(np.round(result.x, 2))
 
+# ------------------ TAG MOTION ------------------
 def move_tags():
     data_rows = []
     true_pos_dict = {}
     est_pos_dict = {}
 
-    for tag in st.session_state.tags:
-        tag["position"][0] += tag["velocity"][0]
-        tag["position"][1] += tag["velocity"][1]
-        tag["position"][0] = np.clip(tag["position"][0], 0.5, room_size[0] - 0.5)
-        tag["position"][1] = np.clip(tag["position"][1], 0.5, room_size[1] - 0.5)
+    if st.session_state.running:
+        for tag in st.session_state.tags:
+            tag["position"][0] += tag["velocity"][0]
+            tag["position"][1] += tag["velocity"][1]
+            tag["position"][0] = np.clip(tag["position"][0], 0.5, room_size[0] - 0.5)
+            tag["position"][1] = np.clip(tag["position"][1], 0.5, room_size[1] - 0.5)
 
+    for tag in st.session_state.tags:
         true_pos = tuple(np.round(tag["position"], 2))
         est_pos = simulate_tdoa(tag["position"])
         true_pos_dict[tag["uid"]] = true_pos
@@ -84,23 +87,28 @@ def move_tags():
 st.set_page_config(layout="wide")
 st.title("📡 RTLS Simulation Dashboard")
 
+# Toggle button
+col_toggle, _ = st.columns([1, 5])
+if col_toggle.button("⏯ Pause" if st.session_state.running else "▶️ Resume"):
+    st.session_state.running = not st.session_state.running
+
 # Auto-refresh
 st_autorefresh(interval=refresh_interval, key="refresh")
 
-# Simulate
+# Simulate and fetch
 df, true_pos, est_pos = move_tags()
 
 # Layout
 col1, col2 = st.columns([1, 1])
 
-# --- Table ---
+# --- Table View ---
 with col1:
-    st.subheader("📊 Tag-Reader Interaction Table")
+    st.subheader("📊 Tag-Reader Table")
     st.dataframe(df, use_container_width=True)
 
-# --- Map Plot ---
+# --- Map View ---
 with col2:
-    st.subheader("📍 RTLS Map (True vs Estimated)")
+    st.subheader("📍 RTLS Map View")
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.set_xlim(0, room_size[0])
     ax.set_ylim(0, room_size[1])
