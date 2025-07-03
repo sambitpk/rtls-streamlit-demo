@@ -15,7 +15,7 @@ refresh_interval = 1000  # ms
 if "readers" not in st.session_state:
     st.session_state.readers = [
         {"id": "RDR-001", "pos": (1, 1), "gain": 1.0},
-        {"id": "RDR-002", "pos": (1, 7), "gain": 0.9},
+        {"id": "RDR-002", "pos": (7, 1), "gain": 0.9},
         {"id": "RDR-003", "pos": (4,7 ), "gain": 1.1}
     ]
 if "tags" not in st.session_state:
